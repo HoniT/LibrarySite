@@ -2,6 +2,8 @@ import org.apache.catalina.Context;
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.startup.Tomcat;
 import servlet.BookServlet;
+import servlet.BorrowingServlet;
+import servlet.MemberServlet;
 
 import java.io.File;
 
@@ -26,6 +28,14 @@ public class Main {
         Tomcat.addServlet(context, "bookServlet", new BookServlet());
         context.addServletMappingDecoded("/books", "bookServlet");
         context.addServletMappingDecoded("/books/*", "bookServlet");
+
+        Tomcat.addServlet(context, "memberServlet", new MemberServlet());
+        context.addServletMappingDecoded("/members", "memberServlet");
+        context.addServletMappingDecoded("/members/*", "memberServlet");
+
+        Tomcat.addServlet(context, "borrowingServlet", new BorrowingServlet());
+        context.addServletMappingDecoded("/borrowings", "borrowingServlet");
+        context.addServletMappingDecoded("/borrowings/*", "borrowingServlet");
 
         tomcat.start();
         tomcat.getConnector();

@@ -1,5 +1,6 @@
 package persistence;
 
+import contracts.books.UpdateBookRequest;
 import persistence.entities.Book;
 import persistence.entities.Borrowing;
 import persistence.entities.Member;
@@ -16,9 +17,9 @@ public class DbService {
     private DbService() {
         try {
             jdbcConnection = DriverManager.getConnection(
-                    "jdbc:postgresql://localhost:5432/postgres?currentSchema=LibraryDB",
+                    "jdbc:postgresql://localhost:5432/postgres?currentSchema=\"LibraryDB\"",
                     "postgres",
-                    "8374"
+                    "PASS REMOVED"
             );
         } catch (SQLException e) {
             System.out.println(Arrays.toString(e.getStackTrace()));
@@ -31,6 +32,9 @@ public class DbService {
         }
         return INSTANCE;
     }
+
+
+    // region Books
 
     public List<Book> getAllBooks() {
         List<Book> books = new ArrayList<>();
@@ -45,6 +49,78 @@ public class DbService {
         return books;
     }
 
+    public Book getBookByCode(String code) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("SELECT * FROM \"Books\" WHERE code = ?")) {
+            stmt.setString(1, code);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return mapResultSetToBook(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    public boolean addBook(Book book) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("INSERT INTO \"Books\" (code, title, author) VALUES (?, ?, ?)")) {
+            stmt.setString(1, book.getCode());
+            stmt.setString(2, book.getTitle());
+            stmt.setString(3, book.getAuthor());
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean deleteBook(String code) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Books\" WHERE code = ?")) {
+            stmt.setString(1, code);
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean updateBook(String code, UpdateBookRequest book) {
+        if (book.getTitle().isEmpty() && book.getAuthor().isEmpty()) {
+            return true;
+        }
+
+        StringBuilder sql = new StringBuilder("UPDATE \"Books\" SET ");
+        List<Object> parameters = new ArrayList<>();
+
+        if (book.getTitle().isPresent()) {
+            sql.append("title = ?, ");
+            parameters.add(book.getTitle().get());
+        }
+        if (book.getAuthor().isPresent()) {
+            sql.append("author = ?, ");
+            parameters.add(book.getAuthor().get());
+        }
+
+        sql.setLength(sql.length() - 2);
+
+        sql.append(" WHERE code = ?");
+        parameters.add(code);
+
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parameters.size(); i++)
+                stmt.setObject(i + 1, parameters.get(i));
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // endregion
+    // region Members
+
     public List<Member> getAllMembers() {
         List<Member> members = new ArrayList<>();
         try (Statement stmt = jdbcConnection.createStatement();
@@ -58,6 +134,9 @@ public class DbService {
         return members;
     }
 
+    // endregion
+    // region Borrowings
+
     public List<Borrowing> getAllBorrowings() {
         List<Borrowing> borrowings = new ArrayList<>();
         try (Statement stmt = jdbcConnection.createStatement();
@@ -70,6 +149,8 @@ public class DbService {
         }
         return borrowings;
     }
+
+    // endregion
 
     // === Helpers ===
 
