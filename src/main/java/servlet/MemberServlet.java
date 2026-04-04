@@ -1,22 +1,175 @@
 package servlet;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import contracts.books.AddBookRequest;
+import contracts.books.UpdateBookRequest;
+import contracts.members.AddMemberRequest;
+import contracts.members.UpdateMemberRequest;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import persistence.DbService;
+import persistence.entities.Book;
+import persistence.entities.Member;
+
+import java.io.IOException;
+import java.sql.Date;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MemberServlet extends HttpServlet {
     private DbService _db;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
         _db = DbService.getInstance();
     }
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) {
+    private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/\\w+/(-?\\d+)$");
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        Optional<Integer> memberId = extractId(req);
+        if(memberId.isPresent()) {
+            Member member = _db.getMemberById(memberId.get());
+            if(member == null) {
+                resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Member with id \"" + memberId + "\" not found");
+                return;
+            }
+
+            objectMapper.writeValue(resp.getWriter(), member);
+        }
+        else {
+            List<Member> members = _db.getAllMembers();
+            objectMapper.writeValue(resp.getWriter(), members);
+        }
+
+        resp.setStatus(HttpServletResponse.SC_OK);
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json");
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        AddMemberRequest memberRequest;
+        try {
+            memberRequest = objectMapper.readValue(req.getReader(), AddMemberRequest.class);
+        } catch (Exception e) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
+            return;
+        }
+
+        // Validating payload
+        if(memberRequest.getName() == null || memberRequest.getName().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Member name is required");
+            return;
+        }
+        if(memberRequest.getEmail() == null || memberRequest.getEmail().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Member email is required");
+            return;
+        }
+        if(!EMAIL_PATTERN.matcher(memberRequest.getEmail()).find()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Invalid email format provided");
+            return;
+        }
+
+        // Checking for member with same email
+        var existingMember = _db.getMemberByEmail(memberRequest.getEmail());
+        if(existingMember != null) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Member with this email already exists");
+            return;
+        }
+
+        Member member = new Member(new Random().nextInt(), memberRequest.getName(), memberRequest.getEmail(), Date.valueOf(LocalDate.now()));
+
+        boolean dbResult = _db.addMember(member);
+        if(!dbResult) {
+            resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Couldn't add to database");
+            return;
+        }
+
+        objectMapper.writeValue(resp.getWriter(), member);
+
+        resp.setStatus(HttpServletResponse.SC_CREATED);
+        resp.setCharacterEncoding("UTF-8");
+        resp.setContentType("application/json");
+    }
+
+    @Override
+    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        var id = extractId(req);
+        if(id.isEmpty()) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No id provided");
+            return;
+        }
+
+        boolean dbResult = _db.deleteMember(id.get());
+        if(!dbResult) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Member not found");
+            return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+    }
+
+    @Override
+    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        var id = extractId(req);
+        if(id.isEmpty()) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No id provided");
+            return;
+        }
+
+        UpdateMemberRequest memberRequest;
+        try {
+            memberRequest = objectMapper.readValue(req.getReader(), UpdateMemberRequest.class);
+        } catch (Exception e) {
+            resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
+            return;
+        }
+
+        if(memberRequest.getEmail().isPresent() && !EMAIL_PATTERN.matcher(memberRequest.getEmail().get()).find()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Invalid email format provided");
+            return;
+        }
+        // Checking for member with same email
+        if(memberRequest.getEmail().isPresent()) {
+            var existingMember = _db.getMemberByEmail(memberRequest.getEmail().get());
+            if(existingMember != null) {
+                resp.sendError(HttpServletResponse.SC_CONFLICT, "Member with this email already exists");
+                return;
+            }
+        }
+
+        boolean dbResult = _db.updateMember(id.get(), memberRequest);
+        if(!dbResult) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Member not found");
+            return;
+        }
+
+        resp.setStatus(HttpServletResponse.SC_NO_CONTENT);
+    }
+
+    // === Helpers ===
+
+    /// Extracts id from endpoint uri if any
+    private Optional<Integer> extractId(HttpServletRequest req) {
+        try {
+            Matcher matcher = ENDPOINT_ID_PATTERN.matcher(req.getRequestURI());
+            if(!matcher.find()) return Optional.empty();
+
+            int id = Integer.parseInt(matcher.group(1));
+            return Optional.of(id);
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

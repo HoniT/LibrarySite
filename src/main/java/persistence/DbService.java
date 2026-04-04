@@ -1,6 +1,7 @@
 package persistence;
 
 import contracts.books.UpdateBookRequest;
+import contracts.members.UpdateMemberRequest;
 import persistence.entities.Book;
 import persistence.entities.Borrowing;
 import persistence.entities.Member;
@@ -132,6 +133,89 @@ public class DbService {
             throw new RuntimeException(e);
         }
         return members;
+    }
+
+    public Member getMemberById(int id) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("SELECT * FROM \"Members\" WHERE id = ?")) {
+            stmt.setInt(1, id);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return (mapResultSetToMember(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    public Member getMemberByEmail(String email) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("SELECT * FROM \"Members\" WHERE email = ?")) {
+            stmt.setString(1, email);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return (mapResultSetToMember(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    public boolean addMember(Member member) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("INSERT INTO \"Members\" (id, name, email, join_date) VALUES (?, ?, ?, ?)")) {
+            stmt.setInt(1, member.getId());
+            stmt.setString(2, member.getName());
+            stmt.setString(3, member.getEmail());
+            stmt.setDate(4, member.getJoin_date());
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean deleteMember(int id) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Members\" WHERE id = ?")) {
+            stmt.setInt(1, id);
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean updateMember(int id, UpdateMemberRequest member) {
+        if (member.getName().isEmpty() && member.getEmail().isEmpty()) {
+            return true;
+        }
+
+        StringBuilder sql = new StringBuilder("UPDATE \"Members\" SET ");
+        List<Object> parameters = new ArrayList<>();
+
+        if (member.getName().isPresent()) {
+            sql.append("name = ?, ");
+            parameters.add(member.getName().get());
+        }
+        if (member.getEmail().isPresent()) {
+            sql.append("email = ?, ");
+            parameters.add(member.getEmail().get());
+        }
+
+        sql.setLength(sql.length() - 2);
+
+        sql.append(" WHERE id = ?");
+        parameters.add(id);
+
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql.toString())) {
+            for (int i = 0; i < parameters.size(); i++)
+                stmt.setObject(i + 1, parameters.get(i));
+
+            int rowsAffected = stmt.executeUpdate();
+            return rowsAffected > 0;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     // endregion
