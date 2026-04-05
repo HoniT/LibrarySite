@@ -1,8 +1,7 @@
 package servlet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import contracts.books.AddBookRequest;
-import contracts.books.UpdateBookRequest;
+import contracts.books.BookRequest;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -27,7 +26,7 @@ public class BookServlet extends HttpServlet {
         _db = DbService.getInstance();
     }
 
-    private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/\\w+/(\\w+)$");
+    private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/api/\\w+/(\\w+)$");
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -53,9 +52,9 @@ public class BookServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        AddBookRequest bookRequest;
+        BookRequest bookRequest;
         try {
-            bookRequest = objectMapper.readValue(req.getReader(), AddBookRequest.class);
+            bookRequest = objectMapper.readValue(req.getReader(), BookRequest.class);
         } catch (Exception e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
             return;
@@ -104,18 +103,28 @@ public class BookServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var code = extractId(req);
         if(code.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No code provided");
             return;
         }
 
-        UpdateBookRequest bookRequest;
+        BookRequest bookRequest;
         try {
-            bookRequest = objectMapper.readValue(req.getReader(), UpdateBookRequest.class);
+            bookRequest = objectMapper.readValue(req.getReader(), BookRequest.class);
         } catch (Exception e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
+            return;
+        }
+
+        // Validating payload
+        if(bookRequest.getTitle() == null || bookRequest.getTitle().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book title is required");
+            return;
+        }
+        if(bookRequest.getAuthor() == null || bookRequest.getAuthor().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book author is required");
             return;
         }
 

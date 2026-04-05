@@ -1,19 +1,18 @@
 package persistence;
 
-import contracts.books.UpdateBookRequest;
-import contracts.members.UpdateMemberRequest;
+import contracts.books.BookRequest;
+import contracts.members.MemberRequest;
 import persistence.entities.Book;
 import persistence.entities.Borrowing;
 import persistence.entities.Member;
 
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class DbService {
     private static DbService INSTANCE;
-    private Connection jdbcConnection;
+    private final Connection jdbcConnection;
 
     private DbService() {
         try {
@@ -23,7 +22,7 @@ public class DbService {
                     "PASS REMOVED"
             );
         } catch (SQLException e) {
-            System.out.println(Arrays.toString(e.getStackTrace()));
+            throw new RuntimeException("Failed to initialize database connection ", e);
         }
     }
 
@@ -85,35 +84,15 @@ public class DbService {
         }
     }
 
-    public boolean updateBook(String code, UpdateBookRequest book) {
-        if (book.getTitle().isEmpty() && book.getAuthor().isEmpty()) {
-            return true;
-        }
+    public boolean updateBook(String code, BookRequest book) {
+        String sql = "UPDATE \"Books\" SET title = ?, author = ? WHERE code = ?";
 
-        StringBuilder sql = new StringBuilder("UPDATE \"Books\" SET ");
-        List<Object> parameters = new ArrayList<>();
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setString(1, book.getTitle());
+            stmt.setString(2, book.getAuthor());
+            stmt.setString(3, code);
 
-        if (book.getTitle().isPresent()) {
-            sql.append("title = ?, ");
-            parameters.add(book.getTitle().get());
-        }
-        if (book.getAuthor().isPresent()) {
-            sql.append("author = ?, ");
-            parameters.add(book.getAuthor().get());
-        }
-
-        sql.setLength(sql.length() - 2);
-
-        sql.append(" WHERE code = ?");
-        parameters.add(code);
-
-        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql.toString())) {
-            for (int i = 0; i < parameters.size(); i++)
-                stmt.setObject(i + 1, parameters.get(i));
-
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
-
+            return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -161,6 +140,20 @@ public class DbService {
         return null;
     }
 
+    public Member getMemberByEmail(String email, int notIncludeId) {
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement("SELECT * FROM \"Members\" WHERE email = ? AND id != ?")) {
+            stmt.setString(1, email);
+            stmt.setInt(2, notIncludeId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return (mapResultSetToMember(rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
     public boolean addMember(Member member) {
         try (PreparedStatement stmt = jdbcConnection.prepareStatement("INSERT INTO \"Members\" (id, name, email, join_date) VALUES (?, ?, ?, ?)")) {
             stmt.setInt(1, member.getId());
@@ -184,35 +177,15 @@ public class DbService {
         }
     }
 
-    public boolean updateMember(int id, UpdateMemberRequest member) {
-        if (member.getName().isEmpty() && member.getEmail().isEmpty()) {
-            return true;
-        }
+    public boolean updateMember(int id, MemberRequest member) {
+        String sql = "UPDATE \"Members\" SET name = ?, email = ? WHERE id = ?";
 
-        StringBuilder sql = new StringBuilder("UPDATE \"Members\" SET ");
-        List<Object> parameters = new ArrayList<>();
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setString(1, member.getName());
+            stmt.setString(2, member.getEmail());
+            stmt.setInt(3, id);
 
-        if (member.getName().isPresent()) {
-            sql.append("name = ?, ");
-            parameters.add(member.getName().get());
-        }
-        if (member.getEmail().isPresent()) {
-            sql.append("email = ?, ");
-            parameters.add(member.getEmail().get());
-        }
-
-        sql.setLength(sql.length() - 2);
-
-        sql.append(" WHERE id = ?");
-        parameters.add(id);
-
-        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql.toString())) {
-            for (int i = 0; i < parameters.size(); i++)
-                stmt.setObject(i + 1, parameters.get(i));
-
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
-
+            return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

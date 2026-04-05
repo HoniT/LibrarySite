@@ -1,23 +1,15 @@
 package contracts.members;
 
 import lombok.AllArgsConstructor;
+import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 
-import java.util.Optional;
-
 @AllArgsConstructor
 @NoArgsConstructor
+@Data
 @Accessors(chain = true)
-public class UpdateMemberRequest {
+public class MemberRequest {
     private String name;
     private String email;
-
-    public Optional<String> getName() {
-        return Optional.ofNullable(name);
-    }
-
-    public Optional<String> getEmail() {
-        return Optional.ofNullable(email);
-    }
 }

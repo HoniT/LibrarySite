@@ -1,17 +1,13 @@
 package servlet;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import contracts.books.AddBookRequest;
-import contracts.books.UpdateBookRequest;
-import contracts.members.AddMemberRequest;
-import contracts.members.UpdateMemberRequest;
+import contracts.members.MemberRequest;
 import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import persistence.DbService;
-import persistence.entities.Book;
 import persistence.entities.Member;
 
 import java.io.IOException;
@@ -32,7 +28,7 @@ public class MemberServlet extends HttpServlet {
         _db = DbService.getInstance();
     }
 
-    private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/\\w+/(-?\\d+)$");
+    private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/api/\\w+/(-?\\d+)$");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     @Override
@@ -59,9 +55,9 @@ public class MemberServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        AddMemberRequest memberRequest;
+        MemberRequest memberRequest;
         try {
-            memberRequest = objectMapper.readValue(req.getReader(), AddMemberRequest.class);
+            memberRequest = objectMapper.readValue(req.getReader(), MemberRequest.class);
         } catch (Exception e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
             return;
@@ -121,32 +117,40 @@ public class MemberServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPatch(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var id = extractId(req);
         if(id.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No id provided");
             return;
         }
 
-        UpdateMemberRequest memberRequest;
+        MemberRequest memberRequest;
         try {
-            memberRequest = objectMapper.readValue(req.getReader(), UpdateMemberRequest.class);
+            memberRequest = objectMapper.readValue(req.getReader(), MemberRequest.class);
         } catch (Exception e) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid JSON payload");
             return;
         }
 
-        if(memberRequest.getEmail().isPresent() && !EMAIL_PATTERN.matcher(memberRequest.getEmail().get()).find()) {
+        // Validating payload
+        if(memberRequest.getName() == null || memberRequest.getName().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Member name is required");
+            return;
+        }
+        if(memberRequest.getEmail() == null || memberRequest.getEmail().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Member email is required");
+            return;
+        }
+
+        if(!EMAIL_PATTERN.matcher(memberRequest.getEmail()).find()) {
             resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Invalid email format provided");
             return;
         }
         // Checking for member with same email
-        if(memberRequest.getEmail().isPresent()) {
-            var existingMember = _db.getMemberByEmail(memberRequest.getEmail().get());
-            if(existingMember != null) {
-                resp.sendError(HttpServletResponse.SC_CONFLICT, "Member with this email already exists");
-                return;
-            }
+        var existingMember = _db.getMemberByEmail(memberRequest.getEmail(), id.get());
+        if(existingMember != null) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Member with this email already exists");
+            return;
         }
 
         boolean dbResult = _db.updateMember(id.get(), memberRequest);

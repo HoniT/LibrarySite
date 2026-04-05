@@ -26,16 +26,16 @@ public class Main {
 
         // Register servlets
         Tomcat.addServlet(context, "bookServlet", new BookServlet());
-        context.addServletMappingDecoded("/books", "bookServlet");
-        context.addServletMappingDecoded("/books/*", "bookServlet");
+        context.addServletMappingDecoded("/api/books", "bookServlet");
+        context.addServletMappingDecoded("/api/books/*", "bookServlet");
 
         Tomcat.addServlet(context, "memberServlet", new MemberServlet());
-        context.addServletMappingDecoded("/members", "memberServlet");
-        context.addServletMappingDecoded("/members/*", "memberServlet");
+        context.addServletMappingDecoded("/api/members", "memberServlet");
+        context.addServletMappingDecoded("/api/members/*", "memberServlet");
 
         Tomcat.addServlet(context, "borrowingServlet", new BorrowingServlet());
-        context.addServletMappingDecoded("/borrowings", "borrowingServlet");
-        context.addServletMappingDecoded("/borrowings/*", "borrowingServlet");
+        context.addServletMappingDecoded("/api/borrowings", "borrowingServlet");
+        context.addServletMappingDecoded("/api/borrowings/*", "borrowingServlet");
 
         tomcat.start();
         tomcat.getConnector();

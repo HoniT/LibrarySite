@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Member Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Library Member Manager</h1>
+
+<div class="card" id="addFormCard">
+  <h2>Add New Member</h2>
+  <form id="addMemberForm">
+    <div class="form-group">
+      <input type="text" id="addName" placeholder="Full Name" required>
+      <input type="email" id="addEmail" placeholder="Email Address" required>
+      <button type="submit">Add Member</button>
+    </div>
+  </form>
+</div>
+
+<div class="card hidden" id="editFormCard">
+  <h2>Edit Member</h2>
+  <form id="editMemberForm">
+    <input type="hidden" id="editId">
+    <div class="form-group">
+      <input type="text" id="editName" placeholder="New Name" required>
+      <input type="email" id="editEmail" placeholder="New Email" required>
+      <button type="submit">Save Changes</button>
+      <button type="button" class="danger" onclick="cancelEdit()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<table>
+  <thead>
+  <tr>
+    <th>ID</th>
+    <th>Name</th>
+    <th>Email</th>
+    <th>Join Date</th>
+    <th>Actions</th>
+  </tr>
+  </thead>
+  <tbody id="memberTableBody">
+  </tbody>
+</table>
+
+<script src="app.js"></script>
+</body>
+</html>
