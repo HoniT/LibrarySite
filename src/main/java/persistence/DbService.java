@@ -7,6 +7,7 @@ import persistence.entities.Borrowing;
 import persistence.entities.Member;
 
 import java.sql.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -75,22 +76,32 @@ public class DbService {
     }
 
     public boolean deleteBook(String code) {
-        try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Books\" WHERE code = ?")) {
-            stmt.setString(1, code);
-            int rows = stmt.executeUpdate();
-            return rows > 0;
+        if (getActiveBorrowing(code) != null) {
+            return false;
+        }
+        try {
+            try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Borrowings\" WHERE book_code = ?")) {
+                stmt.setString(1, code);
+                stmt.executeUpdate();
+            }
+            try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Books\" WHERE code = ?")) {
+                stmt.setString(1, code);
+                int rows = stmt.executeUpdate();
+                return rows > 0;
+            }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
     public boolean updateBook(String code, BookRequest book) {
-        String sql = "UPDATE \"Books\" SET title = ?, author = ? WHERE code = ?";
+        String sql = "UPDATE \"Books\" SET code = ?, title = ?, author = ? WHERE code = ?";
 
         try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
-            stmt.setString(1, book.getTitle());
-            stmt.setString(2, book.getAuthor());
-            stmt.setString(3, code);
+            stmt.setString(1, book.getCode());
+            stmt.setString(2, book.getTitle());
+            stmt.setString(3, book.getAuthor());
+            stmt.setString(4, code);
 
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -168,10 +179,19 @@ public class DbService {
     }
 
     public boolean deleteMember(int id) {
-        try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Members\" WHERE id = ?")) {
-            stmt.setInt(1, id);
-            int rows = stmt.executeUpdate();
-            return rows > 0;
+        if(hasActiveBorrowing(id)) {
+            return false;
+        }
+        try {
+            try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Borrowings\" WHERE member_id = ?")) {
+                stmt.setInt(1, id);
+                stmt.executeUpdate();
+            }
+            try (PreparedStatement stmt = jdbcConnection.prepareStatement("DELETE FROM \"Members\" WHERE id = ?")) {
+                stmt.setInt(1, id);
+                int rows = stmt.executeUpdate();
+                return rows > 0;
+            }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -207,6 +227,65 @@ public class DbService {
         return borrowings;
     }
 
+    public Borrowing getActiveBorrowing(String code) {
+        String sql = "SELECT * FROM \"Borrowings\" WHERE book_code = ? AND return_date IS NULL";
+
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setString(1, code);
+
+            ResultSet rs = stmt.executeQuery();
+            if(rs.next()) {
+                return mapResultSetToBorrowing(rs);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    public boolean hasActiveBorrowing(int memberId) {
+        String sql = "SELECT 1 FROM \"Borrowings\" WHERE member_id = ? AND return_date IS NULL";
+
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setInt(1, memberId);
+
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean addBorrowing(Borrowing borrowing) {
+        String sql = "INSERT INTO \"Borrowings\" (book_code, member_id, borrow_date, return_date) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setString(1, borrowing.getBook_code());
+            stmt.setInt(2, borrowing.getMember_id());
+            stmt.setDate(3, borrowing.getBorrow_date());
+            stmt.setDate(4, borrowing.getReturn_date());
+
+            int rows = stmt.executeUpdate();
+            return rows > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public boolean returnBorrowing(Borrowing borrowing) {
+        String sql = "UPDATE \"Borrowings\" SET return_date = ? WHERE book_code = ? AND member_id = ? AND borrow_date = ?";
+
+        try (PreparedStatement stmt = jdbcConnection.prepareStatement(sql)) {
+            stmt.setDate(1, Date.valueOf(LocalDate.now()));
+            stmt.setString(2, borrowing.getBook_code());
+            stmt.setInt(3, borrowing.getMember_id());
+            stmt.setDate(4, borrowing.getBorrow_date());
+
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     // endregion
 
     // === Helpers ===
@@ -230,6 +309,7 @@ public class DbService {
 
     private Borrowing mapResultSetToBorrowing(ResultSet rs) throws SQLException {
         return new Borrowing(
+                rs.getInt("id"),
                 rs.getString("book_code"),
                 rs.getInt("member_id"),
                 rs.getDate("borrow_date"),

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Borrowing Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Library Borrowing Manager</h1>
+
+<div class="card" id="addFormCard">
+  <h2>Borrow a Book</h2>
+  <form id="borrowBookForm">
+    <div class="form-group">
+      <input type="text" id="borrowBookCode" placeholder="Book Code" required>
+      <input type="number" id="borrowMemberId" placeholder="Member ID" required>
+      <button type="submit">Borrow Book</button>
+    </div>
+  </form>
+</div>
+
+<table>
+  <thead>
+  <tr>
+    <th>ID</th>
+    <th>Book Code</th>
+    <th>Member ID</th>
+    <th>Borrow Date</th>
+    <th>Return Date</th>
+    <th>Actions</th>
+  </tr>
+  </thead>
+  <tbody id="borrowingTableBody">
+  </tbody>
+</table>
+
+<script src="app.js"></script>
+</body>
+</html>

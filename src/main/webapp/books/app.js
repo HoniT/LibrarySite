@@ -1,6 +1,5 @@
 const API_BASE_URL = '/api/books';
 
-// --- Fetch & Display Books ---
 async function fetchBooks() {
     try {
         const response = await fetch(API_BASE_URL);
@@ -16,7 +15,7 @@ async function fetchBooks() {
 
 function renderTable(books) {
     const t_body = document.getElementById('bookTableBody');
-    t_body.innerHTML = ''; // Clear existing rows
+    t_body.innerHTML = '';
 
     books.forEach(book => {
         const row = document.createElement('tr');
@@ -33,10 +32,10 @@ function renderTable(books) {
     });
 }
 
-// --- Add Book ---
 document.getElementById('addBookForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const code = document.getElementById('addCode').value;
     const title = document.getElementById('addTitle').value;
     const author = document.getElementById('addAuthor').value;
 
@@ -44,20 +43,19 @@ document.getElementById('addBookForm').addEventListener('submit', async (e) => {
         const response = await fetch(API_BASE_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, author })
+            body: JSON.stringify({ code, title, author })
         });
 
         if (!response.ok) throw new Error('Failed to add book');
 
         document.getElementById('addBookForm').reset();
-        fetchBooks(); // Refresh list
+        fetchBooks();
     } catch (error) {
         console.error(error);
         alert('Error adding book.');
     }
 });
 
-// --- Delete Book ---
 async function deleteBook(code) {
     if (!confirm(`Are you sure you want to delete book: ${code}?`)) return;
 
@@ -67,19 +65,19 @@ async function deleteBook(code) {
         });
 
         if (!response.ok) throw new Error('Failed to delete book');
-        fetchBooks(); // Refresh list
+        fetchBooks();
     } catch (error) {
         console.error(error);
         alert('Error deleting book.');
     }
 }
 
-// --- Edit Book ---
 function showEditForm(code, title, author) {
     document.getElementById('addFormCard').classList.add('hidden');
     document.getElementById('editFormCard').classList.remove('hidden');
 
-    document.getElementById('editCode').value = code;
+    document.getElementById('originalEditCode').value = code; // Keeps track of the URL parameter
+    document.getElementById('editCode').value = code;         // The editable code field
     document.getElementById('editTitle').value = title;
     document.getElementById('editAuthor').value = author;
 }
@@ -93,15 +91,16 @@ function cancelEdit() {
 document.getElementById('editBookForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
+    const originalCode = document.getElementById('originalEditCode').value;
     const code = document.getElementById('editCode').value;
     const title = document.getElementById('editTitle').value;
     const author = document.getElementById('editAuthor').value;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/${code}`, {
+        const response = await fetch(`${API_BASE_URL}/${originalCode}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, author })
+            body: JSON.stringify({ code, title, author })
         });
 
         if (!response.ok) throw new Error('Failed to update book');
@@ -114,5 +113,4 @@ document.getElementById('editBookForm').addEventListener('submit', async (e) => 
     }
 });
 
-// Initial Load
 document.addEventListener('DOMContentLoaded', fetchBooks);

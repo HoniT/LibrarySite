@@ -11,7 +11,6 @@ import persistence.DbService;
 import persistence.entities.Book;
 
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -29,7 +28,7 @@ public class BookServlet extends HttpServlet {
     private static final Pattern ENDPOINT_ID_PATTERN = Pattern.compile("^/api/\\w+/(\\w+)$");
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         Optional<String> bookCode = extractId(req);
         if(bookCode.isPresent()) {
             Book book = _db.getBookByCode(bookCode.get());
@@ -51,7 +50,7 @@ public class BookServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         BookRequest bookRequest;
         try {
             bookRequest = objectMapper.readValue(req.getReader(), BookRequest.class);
@@ -69,8 +68,18 @@ public class BookServlet extends HttpServlet {
             resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book author is required");
             return;
         }
+        if(bookRequest.getCode() == null || bookRequest.getCode().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book code is required");
+            return;
+        }
 
-        Book book = new Book(generateBookCode(10), bookRequest.getTitle(), bookRequest.getAuthor());
+        Book existingBook = _db.getBookByCode(bookRequest.getCode());
+        if(existingBook != null) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Can't add book. Book with this code already exists");
+            return;
+        }
+
+        Book book = new Book(bookRequest.getCode(), bookRequest.getTitle(), bookRequest.getAuthor());
 
         boolean dbResult = _db.addBook(book);
         if(!dbResult) {
@@ -86,10 +95,15 @@ public class BookServlet extends HttpServlet {
     }
 
     @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var code = extractId(req);
         if(code.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No code provided");
+            return;
+        }
+
+        if(_db.getActiveBorrowing(code.get()) != null) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Cannot delete book. It is currently in an active borrow.");
             return;
         }
 
@@ -103,7 +117,7 @@ public class BookServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var code = extractId(req);
         if(code.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No code provided");
@@ -125,6 +139,16 @@ public class BookServlet extends HttpServlet {
         }
         if(bookRequest.getAuthor() == null || bookRequest.getAuthor().isBlank()) {
             resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book author is required");
+            return;
+        }
+        if(bookRequest.getCode() == null || bookRequest.getCode().isBlank()) {
+            resp.sendError(HttpServletResponse.SC_UNPROCESSABLE_CONTENT, "Book code is required");
+            return;
+        }
+
+        Book existingBook = _db.getBookByCode(bookRequest.getCode());
+        if(existingBook != null) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Can't change book code. Book with this code already exists");
             return;
         }
 
@@ -150,16 +174,5 @@ public class BookServlet extends HttpServlet {
         } catch (Exception e) {
             return Optional.empty();
         }
-    }
-
-    private static final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    private static final SecureRandom RANDOM = new SecureRandom();
-    public static String generateBookCode(int length) {
-        StringBuilder sb = new StringBuilder(length);
-        for (int i = 0; i < length; i++) {
-            int randomIndex = RANDOM.nextInt(CHARACTERS.length());
-            sb.append(CHARACTERS.charAt(randomIndex));
-        }
-        return sb.toString();
     }
 }

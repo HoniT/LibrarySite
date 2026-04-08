@@ -14,6 +14,7 @@
     <h2>Add New Book</h2>
     <form id="addBookForm">
         <div class="form-group">
+            <input type="text" id="addCode" placeholder="Book Code" required>
             <input type="text" id="addTitle" placeholder="Book Title" required>
             <input type="text" id="addAuthor" placeholder="Author Name" required>
             <button type="submit">Add Book</button>
@@ -24,10 +25,11 @@
 <div class="card hidden" id="editFormCard">
     <h2>Edit Book</h2>
     <form id="editBookForm">
-        <input type="hidden" id="editCode">
+        <input type="hidden" id="originalEditCode">
         <div class="form-group">
-            <input type="text" id="editTitle" placeholder="New Title">
-            <input type="text" id="editAuthor" placeholder="New Author">
+            <input type="text" id="editCode" placeholder="Book Code" required>
+            <input type="text" id="editTitle" placeholder="New Title" required>
+            <input type="text" id="editAuthor" placeholder="New Author" required>
             <button type="submit">Save Changes</button>
             <button type="button" class="danger" onclick="cancelEdit()">Cancel</button>
         </div>

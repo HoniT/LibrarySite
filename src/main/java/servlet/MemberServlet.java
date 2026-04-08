@@ -32,7 +32,7 @@ public class MemberServlet extends HttpServlet {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         Optional<Integer> memberId = extractId(req);
         if(memberId.isPresent()) {
             Member member = _db.getMemberById(memberId.get());
@@ -54,7 +54,7 @@ public class MemberServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         MemberRequest memberRequest;
         try {
             memberRequest = objectMapper.readValue(req.getReader(), MemberRequest.class);
@@ -100,10 +100,15 @@ public class MemberServlet extends HttpServlet {
     }
 
     @Override
-    protected void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doDelete(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var id = extractId(req);
         if(id.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No id provided");
+            return;
+        }
+
+        if(_db.hasActiveBorrowing(id.get())) {
+            resp.sendError(HttpServletResponse.SC_CONFLICT, "Cannot delete member. They have an active borrow.");
             return;
         }
 
@@ -117,7 +122,7 @@ public class MemberServlet extends HttpServlet {
     }
 
     @Override
-    protected void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+    public void doPut(HttpServletRequest req, HttpServletResponse resp) throws IOException {
         var id = extractId(req);
         if(id.isEmpty()) {
             resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "No id provided");

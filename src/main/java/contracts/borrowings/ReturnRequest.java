@@ -1,4 +1,4 @@
-package contracts.books;
+package contracts.borrowings;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,8 +9,6 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 @Data
 @Accessors(chain = true)
-public class BookRequest {
-    private String code;
-    private String title;
-    private String author;
+public class ReturnRequest {
+    private String bookCode;
 }
